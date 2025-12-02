@@ -1,7 +1,8 @@
 # Libraries
 install.packages("raster")
-install.packages("rgdal")
+install.packages("ncdf4")
 
 # Load packages
 library(raster)
-df2015 <- raster("C:/Documents/Etudes/M2&DOC~1/Doctorat/WORKSH~1/HACKAT~1/HACKAT~1/data/PRADJU~1.NC")
+library(ncdf4)
+df2015 <- raster("C:/Documents/Etudes/M2 & doctorat - UT2J/Doctorat/Workshops/Hackathon le climat en données 2 - 4-12-25/Hackathon-climat-github/data/2015.nc")
