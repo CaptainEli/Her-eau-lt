@@ -32,6 +32,13 @@ library(sp)
 library(gridExtra)
 library(ggpubr)
 library(tidyquery)
+library(tidyr)
+library(sp)
+library(igraph)
+library(doBy)
+library(gridExtra)
+library(classInt)
+library(RColorBrewer)
 
 ## Script adapted from Beguier et al. (2023), original archived here: 
 # https://entrepot.recherche.data.gouv.fr/dataset.xhtml?persistentId=doi:10.57745/KQPYA4
@@ -43,6 +50,8 @@ data_p1 <- read.table("data/data_p1.txt", sep="\t", header=TRUE, dec=".")
 data_precip <- data_full[, -5]
 data_temp <- data_full[, -4]
 ```
+
+# Précipitations
 
 ```{r precip, include=FALSE}
 ## Création de la fonction enveloppe : 
@@ -136,6 +145,7 @@ data_periode_1 <- Cumul_P_moy_dep[Cumul_P_moy_dep$annee>2019& Cumul_P_moy_dep$an
 enveloppe_periode_1 <- enveloppe(data_periode_1$annee,data_periode_1$CumP,X=10,meth="sd")
 #enveloppe_periode_2 <- enveloppe(data_periode_2$annee,data_periode2$CumP,X=10,meth="sd")
 
+
 ## Nombre de jours sans pluie, somme des différents points : 
 Cumul_P_jour <- aggregate(dataok$Pluies_mm, 
                           list(dataok$Date, dataok$annee),
@@ -146,8 +156,10 @@ colnames(Cumul_P_jour)<-c("date", "annee","Pluies_mm")
 jourssansPluie <- query("select distinct date, annee from Cumul_P_jour where Pluies_mm<1")
 jours_par_an <- query("select count(*) as jours_sans_pluie, annee from jourssansPluie GROUP By annee")
 
-# Création de l'enveloppe :
-enveloppe_sans_pluie <- enveloppe(data_tot_sans_pluies$annee,data_tot_sans_pluies$jours_sans_pluie,X=10,meth="sd")
+
+## Sélection des jours à fortes pluies : 
+joursPluie <- query("select distinct Date, annee from dataok where Pluies_mm>50")
+jours_par_an <- query("select count(*) as evenements_forts, annee from joursPluie GROUP By annee")
 ```
 
 ```{r graph_precip, echo=FALSE}
@@ -173,8 +185,59 @@ ggsave("figures/Precipitations_Cumul_annuel_2043 - 2061.png", width=8, height=5)
 #  transition_time(as.Date(Date))
 ```
 
-```{r temp, include=FALSE}
+# Températures
 
+```{r temp, include=FALSE}
+#Etape 1 : Etude de l'évolution des temperatures moyennes annuelles 
+
+#calcul des températures moyennes par an et les associer à leur période
+moyan <- aggregate(x=dataok$Tmoy_degree, by = list(dataok$annee), FUN = mean)
+colnames (moyan) <- c("annee", "temperature")
+moyan
+
+#découpage des fichiers sur chaque période choisie
+data_ref <- moyan[(moyan$annee>=E)& (moyan$annee<=F),]
+mean_ref <- mean(data_ref$temperature)
+mean_ref
+
+#période historique et ajout d'une colonne mentionnant les années de la période
+moyan_histo <- moyan[(moyan$annee<=A),]
+histo <- rep("historique",nrow(moyan_histo))
+moyan_histo <- cbind(moyan_histo, histo)
+colnames(moyan_histo)<- c("annee", "temperature","periode")
+moyan_histo
+
+#horizon proche et ajout d'une colonne mentionnant les années de la période
+moyan_proche <- moyan[(moyan$annee>A)& (moyan$annee<=B),] 
+proche <- rep("horizon proche", nrow(moyan_proche))
+moyan_proche<- cbind(moyan_proche, proche)
+colnames(moyan_proche)<- c("annee", "temperature","periode")
+def_proche <-  as.character(round(mean(moyan_proche$temperature)-mean_ref,1)) #calcul de l'écart de température de la période proche par rapport à la référence pour l'afficher sur le graphique
+def_proche <- paste("+", def_proche, "°C")
+def_proche
+
+#horizon moyen et ajout d'une colonne mentionnant les années de la période
+moyan_moyen <- moyan[(moyan$annee>B)& (moyan$annee<=C),] 
+moyen <- rep("horizon moyen", nrow(moyan_moyen))
+moyan_moyen<- cbind(moyan_moyen, moyen)
+colnames(moyan_moyen)<- c("annee", "temperature","periode")
+def_moyen <-  as.character(round(mean(moyan_moyen$temperature)-mean_ref,1))
+def_moyen <- paste("+", def_moyen, "°C")
+def_moyen
+
+#horizon lointain et ajout d'une colonne mentionnant les années de la période
+moyan_lointain <- moyan[(moyan$annee>C),] 
+lointain <- rep("horizon lointain", nrow(moyan_lointain))
+moyan_lointain<- cbind(moyan_lointain, lointain)
+colnames(moyan_lointain)<- c("annee", "temperature","periode")
+def_lointain <-  as.character(round(mean(moyan_lointain$temperature)-mean_ref,1))
+def_lointain <- paste("+", def_lointain, "°C")
+def_lointain
+
+#réunion des fichiers
+
+moytempan <- rbind(moyan_histo,moyan_proche,moyan_moyen,moyan_lointain)
+moytempan
 ```
 
 ```{r temp_map, echo=FALSE}
