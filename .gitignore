@@ -2,3 +2,13 @@
 .Rhistory
 .RData
 .Ruserdata
+data/2015.nc
+data/2016.nc
+data/temp_herault_jour_2040_2049.nc
+data/precip_2048.nc
+data/precip_2016_herault_heure.nc
+data/precip_2019.nc
+data/precip_2018.nc
+data/precip_herault_daymean.nc
+data/precip_merged_with_dates.nc
+data/temp_herault_2042_2061_with_dates.nc

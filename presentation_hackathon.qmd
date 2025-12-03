@@ -22,12 +22,124 @@ When you click the **Render** button a presentation will be generated that inclu
 ```{r packages, include=FALSE}
 library(ggplot2)
 library(gganimate)
+library(rlang)
+library(Rcpp)
+library(lubridate)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(lattice)
+library(sp)
+library(gridExtra)
+library(ggpubr)
 ```
 
 ```{r data_import, include=FALSE}
-data_full <- read.table("data_full.txt", sep="\t", header=TRUE, dec=".")
+data_full <- read.table("data/data_full.txt", sep="\t", header=TRUE, dec=".")
+data_p1 <- read.table("data/data_p1.txt", sep="\t", header=TRUE, dec=".")
 data_precip <- data_full[, -5]
 data_temp <- data_full[, -4]
+```
+
+```{r precip, include=FALSE}
+## Création de la fonction enveloppe : 
+enveloppe<-function(Y,V,X=10,meth='sd')
+{ 
+  floess=loess(V~Y,span=1)
+  yfit=predict(floess, newdata=Y)
+  #X :largeur de la fenêtre glissante pour enveloppe avec X pair
+  #meth='sd' ou =95 pour quantiles à 95 %, ou =90 pour quantiles à 90 %, etc
+  
+  if(meth=='sd')
+  {
+    # Cas 1 : Calcul des écarts-types sur X ans 
+    G=NULL
+    for (i in (X/2):(length(Y)-(X/2))) {
+      SD=sd(V[((i-X/2)+1):(i+X/2)])
+      G=c(G,SD)  
+    }
+    #Limites supérieures et inférieures de l'enveloppe = moy + sigma , moy - sigma (attention pas de meme taille)
+    LimSup=yfit[(X/2):(length(Y)-(X/2))]+G
+    LimInf=yfit[(X/2):(length(Y)-(X/2))]-G
+    
+  } else {
+    Z<-as.numeric(meth)/100
+    # Cas 2 : Calcul de l'enveloppe sur quantiles à Z% (e.g Z=95)
+    LimSup=NULL
+    LimInf=NULL
+    Y.sd<-Y[(X/2):(length(Y)-(X/2))]
+    for (i in (X/2):(length(Y)-(X/2))) {
+      Q.up=quantile(V[((i-X/2)+1):(i+X/2)], Z+((1-Z)/2))
+      Q.down=quantile(V[((i-X/2)+1):(i+X/2)], (1-Z)/2)
+      LimSup=c(LimSup)
+      LimInf=c(LimInf) 
+    }
+    
+  }
+  
+  #Réunion dans un tableau de données et sorties
+  data1<-data.frame(Y[(X/2):(length(Y)-(X/2))],LimSup, LimInf)
+  colnames(data1)<-c("Y","LimSup","LimInf")
+  ajoutx1 <- Y[1:(X/2)-1]
+  ajoutx2 <- Y[((length(Y)-(X/2))+1):(length(Y))]
+  ajouty1 <- rep(LimSup[1],X/2-1)
+  ajouty2 <-rep(LimSup[length(LimSup)],X/2)
+  ajouty1i <-rep(LimInf[1],X/2-1)
+  ajouty2i <-rep(LimInf[length(LimInf)],X/2)
+  datajout1 <- data.frame(ajoutx1,ajouty1, ajouty1i)
+  colnames(datajout1)<-c("Y","LimSup","LimInf")
+  datajout2 <- data.frame(ajoutx2,ajouty2, ajouty2i)
+  colnames(datajout2)<-c("Y","LimSup","LimInf")
+  data1<-rbind(datajout1, data1, datajout2)
+  data1 <-cbind(data1,yfit)
+  data1
+}
+
+
+## Traitement des dates du jeu de données :
+Date <- as.vector(data_full$Date)   ##extraction du vecteur date
+mois <- month(Date, label=TRUE, abbr = FALSE) #récupération du mois (nom) dans le vecteur date
+Annee <-year(Date) #récupération de l'année
+jour <- day(Date) #récupération du jour
+dataok<-cbind(data_full,jour,mois,Annee) #ajout de ces trois nouvelles colonnes à la base de données
+
+
+## Passage en année hydrologique : 
+dataok$moisok <- month(dataok$Date, label = FALSE)
+dataok$annee <- with(dataok, ifelse(moisok>8, Annee+1, Annee))
+dataok <- dataok[dataok$annee>Limite_inf & dataok$annee<=D,]
+
+
+## Calcul du cumul annuel et découpage par périodes :
+Cumul_P <- aggregate(dataok$Pluies_mm, 
+                     list(dataok$annee, dataok$Longitude, dataok$Latitude),
+                     sum,
+                     na.rm=TRUE)
+colnames(Cumul_P)<-c("annee","longitude","latitude","CumP")
+
+Cumul_P_moy_dep<- aggregate(Cumul_P$CumP, 
+                            list(Cumul_P$annee), 
+                            mean, 
+                            na.rm=TRUE) #moyenne pluviométrique départementale
+colnames(Cumul_P_moy_dep) <- c("annee", "CumP")
+
+#data_histo <- Cumul_P_moy_dep[Cumul_P_moy_dep$annee<=2019,]
+#data_periode_1 <- Cumul_P_moy_dep[Cumul_P_moy_dep$annee>2019& Cumul_P_moy_dep$annee<=2061,]
+# data_periode_2 <- Cumul_P_moy_dep[Cumul_P_moy_dep$annee>2061& Cumul_P_moy_dep$annee<=2087,]
+
+
+## Création des enveloppes : 
+enveloppe_histo <- enveloppe(data_histo$annee,data_histo$CumP,X=10,meth="sd")
+enveloppe_periode_1 <- enveloppe(data_periode_1$annee,data_proche$CumP,X=10,meth="sd")
+# enveloppe_periode_2 <- enveloppe(data_periode_2$annee,data_moyen$CumP,X=10,meth="sd")
+```
+
+```{r precip_map, echo=FALSE}
+ggplot(data_full, aes(x = Longitude, y = Latitude, colour = Pluies_mm)) +
+  geom_sf() +
+  transition_time(as.Date(Date))
+
+p
 ```
 
 ```{r temp_map, echo=FALSE}
