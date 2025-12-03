@@ -1,0 +1,47 @@
+---
+title: "Hackathon "Le Climat en données" - HER(EAU)LT"
+format: revealjs
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished presentation. To learn more about Quarto presentations see <https://quarto.org/docs/presentations/>.
+
+## Bullets
+
+When you click the **Render** button a document will be generated that includes:
+
+-   Content authored with markdown
+-   Output from executable code
+
+## Code
+
+When you click the **Render** button a presentation will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r packages, include=FALSE}
+library(ggplot2)
+library(gganimate)
+```
+
+```{r data_import, include=FALSE}
+data_full <- read.table("data_full.txt", sep="\t", header=TRUE, dec=".")
+data_precip <- data_full[, -5]
+data_temp <- data_full[, -4]
+```
+
+```{r temp_map, echo=FALSE}
+t <- ggplot(data_temp, aes(x = lon, y = lat, colour = tmoy)) +
+  geom_point() +
+  geom_sf() + # seems to be what people use for map, in general
+  labs(title = "Année : {frame_time}", x = "Longitude", y = "Latitude")
+
+t_anim <- t + transition_time(Date) +
+  ease_aes("linear")
+
+anim_save("figures/temp_map_anim.gif", t_anim)
+
+t_anim
+# CURRENTLY IN DAYS, average over years for maps?
+# -> For rain, years; for temp, months over 1 year (pivot: 2052, 2010 for historical)
+```
