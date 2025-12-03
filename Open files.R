@@ -1,14 +1,4 @@
-# Libraries
-install.packages("raster")
-install.packages("ncdf4")
-
-# Load packages
-library(raster)
-library(ncdf4)
-df2015 <- raster("C:/Documents/Etudes/M2 & doctorat - UT2J/Doctorat/Workshops/Hackathon le climat en données 2 - 4-12-25/Hackathon-climat-github/data/2015.nc")
-
-### SCRATCH THAT
-## Adapted from the original script by Pignard et al. (2023) archived here: 
+## Adapted from the original script by Beguier et al. (2023) archived here: 
 # https://entrepot.recherche.data.gouv.fr/dataset.xhtml?persistentId=doi:10.57745/KQPYA4
 
 ## Nettoyage de l'environnement de travail

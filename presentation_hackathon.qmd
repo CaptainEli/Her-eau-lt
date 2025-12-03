@@ -27,11 +27,14 @@ library(Rcpp)
 library(lubridate)
 library(tidyverse)
 library(dplyr)
-library(ggplot2)
 library(lattice)
 library(sp)
 library(gridExtra)
 library(ggpubr)
+library(tidyquery)
+
+## Script adapted from Beguier et al. (2023), original archived here: 
+# https://entrepot.recherche.data.gouv.fr/dataset.xhtml?persistentId=doi:10.57745/KQPYA4
 ```
 
 ```{r data_import, include=FALSE}
@@ -107,7 +110,7 @@ dataok<-cbind(data_full,jour,mois,Annee) #ajout de ces trois nouvelles colonnes 
 ## Passage en année hydrologique : 
 dataok$moisok <- month(dataok$Date, label = FALSE)
 dataok$annee <- with(dataok, ifelse(moisok>8, Annee+1, Annee))
-dataok <- dataok[dataok$annee>Limite_inf & dataok$annee<=D,]
+dataok <- dataok[dataok$annee>1951 & dataok$annee<=2100,]
 
 
 ## Calcul du cumul annuel et découpage par périodes :
@@ -124,22 +127,54 @@ Cumul_P_moy_dep<- aggregate(Cumul_P$CumP,
 colnames(Cumul_P_moy_dep) <- c("annee", "CumP")
 
 #data_histo <- Cumul_P_moy_dep[Cumul_P_moy_dep$annee<=2019,]
-#data_periode_1 <- Cumul_P_moy_dep[Cumul_P_moy_dep$annee>2019& Cumul_P_moy_dep$annee<=2061,]
-# data_periode_2 <- Cumul_P_moy_dep[Cumul_P_moy_dep$annee>2061& Cumul_P_moy_dep$annee<=2087,]
+data_periode_1 <- Cumul_P_moy_dep[Cumul_P_moy_dep$annee>2019& Cumul_P_moy_dep$annee<=2061,]
+#data_periode_2 <- Cumul_P_moy_dep[Cumul_P_moy_dep$annee>2061& Cumul_P_moy_dep$annee<=2087,]
 
 
 ## Création des enveloppes : 
-enveloppe_histo <- enveloppe(data_histo$annee,data_histo$CumP,X=10,meth="sd")
-enveloppe_periode_1 <- enveloppe(data_periode_1$annee,data_proche$CumP,X=10,meth="sd")
-# enveloppe_periode_2 <- enveloppe(data_periode_2$annee,data_moyen$CumP,X=10,meth="sd")
+#enveloppe_histo <- enveloppe(data_histo$annee,data_histo$CumP,X=10,meth="sd")
+enveloppe_periode_1 <- enveloppe(data_periode_1$annee,data_periode_1$CumP,X=10,meth="sd")
+#enveloppe_periode_2 <- enveloppe(data_periode_2$annee,data_periode2$CumP,X=10,meth="sd")
+
+## Nombre de jours sans pluie, somme des différents points : 
+Cumul_P_jour <- aggregate(dataok$Pluies_mm, 
+                          list(dataok$Date, dataok$annee),
+                          sum,
+                          na.rm=TRUE)
+colnames(Cumul_P_jour)<-c("date", "annee","Pluies_mm")
+
+jourssansPluie <- query("select distinct date, annee from Cumul_P_jour where Pluies_mm<1")
+jours_par_an <- query("select count(*) as jours_sans_pluie, annee from jourssansPluie GROUP By annee")
+
+# Création de l'enveloppe :
+enveloppe_sans_pluie <- enveloppe(data_tot_sans_pluies$annee,data_tot_sans_pluies$jours_sans_pluie,X=10,meth="sd")
+```
+
+```{r graph_precip, echo=FALSE}
+graph_p1 <-ggplot(data=data_periode_1,aes(x=annee,y=CumP))+
+  geom_bar(stat="identity", fill="#003399", width = 0.6)+ #histogramme
+  xlab("Annee")+
+  ylab("Cumul de pluie (mm)")+
+  ggtitle("Evolution du cumul de pluie à l'horizon 2043-2061")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5, size=16))+
+  geom_line(aes(x=enveloppe_periode_1$Y, y=enveloppe_periode_1$yfit),color="red", linetype="twodash", size=1.5)+
+  geom_line(aes(x=enveloppe_periode_1$Y,y=enveloppe_periode_1$LimSup),color="black", linetype="twodash" )+
+  geom_line(aes(x=enveloppe_periode_1$Y,y=enveloppe_periode_1$LimInf),color="black", linetype="twodash" )
+
+graph_p1
+
+ggsave("figures/Precipitations_Cumul_annuel_2043 - 2061.png", width=8, height=5)
 ```
 
 ```{r precip_map, echo=FALSE}
-ggplot(data_full, aes(x = Longitude, y = Latitude, colour = Pluies_mm)) +
-  geom_sf() +
-  transition_time(as.Date(Date))
+#ggplot(data_p1, aes(x = Longitude, y = Latitude, colour = Pluies_mm)) +
+#  geom_point() +
+#  transition_time(as.Date(Date))
+```
 
-p
+```{r temp, include=FALSE}
+
 ```
 
 ```{r temp_map, echo=FALSE}
