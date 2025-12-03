@@ -9,7 +9,7 @@ mkdir -p "$chemin_out"
 echo "=== Début du traitement individuel ==="
 
 # Boucle sur tous les fichiers .nc du dossier
-for file in "$chemin"/*.nc; do
+for file in "$chemin"/precip_2009.nc; do
     filename=$(basename "$file")
     output_tmp="tmp_${filename}"
 
